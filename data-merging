@@ -1,0 +1,230 @@
+#: loading the datasets
+library(limma, verbose = F)
+library(edgeR, verbose = F)
+
+#Immgen dataset collection
+imm.Seq<-read.csv("GSE109125_Gene_count_table_GENCODE_vM25.csv")
+#remove zero counts
+imm.Seq<-imm.Seq[!rowSums(imm.Seq[,-1]==0)==205,]
+
+#remove genes with lower than 10 total counts (=lowly expressed)
+keep.i<-rowSums(imm.Seq[,-1]) >=10
+imm.Seq.part<-imm.Seq[keep.i,]
+
+#further filtering
+keep.i<-filterByExpr(imm.Seq[,-1], min.prop = 0.1)
+dim(imm.Seq.part<-imm.Seq[keep.i,])
+#[1] 15029   206
+
+#murine colonic T cells
+T.Seq<-read.csv("Thornton.data.csv")
+
+T.Seq.part<-T.Seq[!rowSums(T.Seq[,-1]==0)==25,]
+keep.t<-rowSums(T.Seq.part[,-1]) >=10
+T.Seq.part<-T.Seq.part[keep.t,]
+
+# genes present in at least 3 samples (25*0.12 =3)
+keep.t<-filterByExpr(T.Seq.part[,-1], min.prop = 0.12)
+dim(T.Seq.part<-T.Seq.part[keep.t,])
+#[1] 5015   26
+
+# obtain gene symbols for the murine colonic T cells
+library("org.Mm.eg.db")
+T_genes <- substr(T.Seq.part$id, 1, 18)
+T.Seq.part$symbol <- mapIds(org.Mm.eg.db,
+                       keys=T_genes,
+                       column="SYMBOL",
+                       keytype="ENSEMBL",
+                       multiVals="first")
+T.Seq.part<-na.omit(T.Seq.part)
+anyDuplicated(T.Seq.part$symbol)
+T.Seq.part<-T.Seq.part[!duplicated(T.Seq.part$symbol), ]
+#rearrange the data table
+T.Seq.part<-T.Seq.part[2:27]
+T.Seq.part <-T.Seq.part[c(26,1:25)]
+
+
+H.Seq<-read.csv("raw.count.csv")
+H.Seq.part<-H.Seq[!rowSums(H.Seq[,-1]==0)==12,]
+keep.h<-rowSums(H.Seq.part[,-1]) >=10
+H.Seq.part<-H.Seq.part[keep.h,]
+
+# genes present in at least 3 samples (12*0.25 =3)
+keep.h<-filterByExpr(H.Seq.part[,-1], min.prop = 0.25)
+dim(H.Seq.part<-H.Seq.part[keep.h,])
+#[1] 8848   13
+
+#Gene names in ENTREZ format, want actual gene names
+library("org.Hs.eg.db")
+H_genes <- substr(H.Seq.part$X, 1, 15)
+H.Seq.part$symbol <- mapIds(org.Hs.eg.db,
+                       keys=H_genes,
+                       column="SYMBOL",
+                       keytype="ENTREZID",
+                       multiVals="first")
+H.Seq.part<-na.omit(H.Seq.part)
+anyDuplicated(H.Seq.part$symbol)
+H.Seq.part<-H.Seq.part[2:14]
+H.Seq.part <-H.Seq.part[c(13,1:12)]
+
+#Data transformation and normalisation
+library ("vsn")
+imm.Seq.part.v<-voom(imm.Seq.part[,-1], plot = TRUE)
+T.Seq.part.v<-voom(T.Seq.part[,-1], plot = TRUE)
+H.Seq.part.v<-voom(H.Seq.part[,-1], plot = TRUE)
+
+imm.Seq.part.v.n<-vsn2(imm.Seq.part.v$E)
+imm.Seq.part.v.n<-exprs(imm.Seq.part.v.n)
+row.names(imm.Seq.part.v.n)<-imm.Seq.part$GeneSymbol
+
+T.Seq.part.v.n<-vsn2(T.Seq.part.v$E)
+T.Seq.part.v.n<-exprs(T.Seq.part.v.n)
+row.names(T.Seq.part.v.n)<-T.Seq.part$symbol
+
+H.Seq.part.v.n<-vsn2(H.Seq.part.v$E)
+H.Seq.part.v.n<-exprs(H.Seq.part.v.n)
+row.names(H.Seq.part.v.n)<-H.Seq.part$symbol
+
+#Add mouse gene symbols to the human dataset
+
+library("biomaRt")
+human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+mouse = useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+
+Human_genes<-as.vector(row.names(H.Seq.part.v.n))
+H_mouse_ID = getLDS(attributes = c("hgnc_symbol"), 
+                      filters = "hgnc_symbol", 
+                      values = Human_genes , 
+                      mart = human, 
+                      attributesL = c("mgi_symbol"), 
+                      martL = mouse, uniqueRows=T)
+
+H_mouse_ID<-H_mouse_ID[!duplicated(H_mouse_ID$HGNC.symbol), ]
+H_mouse_ID<-H_mouse_ID[!duplicated(H_mouse_ID$MGI.symbol), ]
+write.csv(H.Seq.part.v.n, "Hackstein_t_n.csv")
+H_merge<-read.csv("Hackstein_t_n.csv")
+H_merge<-merge(H_mouse_ID,H_merge, by.x="HGNC.symbol", by.y="X")
+H_mouse<-H_merge[-1]
+row.names(H_mouse)<-H_mouse$MGI.symbol
+H_mouse<-H_mouse[-1]
+
+#identify which genes are present in all datasets
+
+#intersect Immgen - Thornton
+id.tmp<-intersect(row.names(imm.Seq.part.v.n), row.names(T.Seq.part.v.n))
+id.tmp<-id.tmp[!is.na(id.tmp)]
+length(id.tmp)
+#[1] 4266
+
+#intersect all
+id.tmp<-intersect(id.tmp, row.names(H_mouse))
+id.tmp<-id.tmp[!is.na(id.tmp)]
+length(id.tmp)
+#[1] 3512
+
+#Merging the datasets
+Imm.T.v.n.<-cbind(imm.Seq.part.v.n[match(id.tmp, row.names(imm.Seq.part.v.n)),],
+                    T.Seq.part.v.n[match(id.tmp, rownames(T.Seq.part.v.n)),])
+
+Imm.T.H.v.n<-cbind(Imm.T.v.n.[match(id.tmp, row.names(Imm.T.v.n.)),],
+                   H_mouse[match(id.tmp, rownames(H_mouse)),])
+                   
+Imm.T.H.v.n<- as.matrix(Imm.T.H.v.n)                  
+
+#remove non-T cell populations (from Immgen) as well as the "MAITs" from the murine colinic T cells
+# reason for the latter: Tetramer-staining wasn't looking very convincing during the sort
+Imm.T.H.v.n.part<-Imm.T.H.v.n[,-c(1:51)]
+Imm.T.H.v.n.part<-Imm.T.H.v.n.part[,-c(10:28)]
+Imm.T.H.v.n.part<-Imm.T.H.v.n.part[,-c(21:41)]
+Imm.T.H.v.n.part<-Imm.T.H.v.n.part[,-c(65:101)]
+Imm.T.H.v.n.part<-Imm.T.H.v.n.part[,-c(65:66)]
+Imm.T.H.v.n.part<-Imm.T.H.v.n.part[,-c(33:38)]
+Imm.T.H.v.n.part<-Imm.T.H.v.n.part[,-c(1:20)]
+Imm.T.H.v.n.part<-Imm.T.H.v.n.part[,-c(65:69)]
+
+# remove batch effects
+library("tidyverse")
+library("sva")
+pheno<-read.csv("pheno_data.csv")
+batch=pheno$Batch
+coldata<-pheno
+modcombat = model.matrix(~1, data=coldata)
+
+combat.Imm.T.H.v.n<-ComBat(Imm.T.H.v.n, batch = batch, 
+                      mod=modcombat, par.prior=TRUE, 
+                      prior.plots=TRUE)
+
+#filter for the most varable genes                      
+Gen075<-varFilter(combat.Imm.T.H.v.n, var.func=IQR, var.cutoff=0.75, filterByQuantile=TRUE)
+dim(Gen075)
+#[1]  878  81
+
+# Clustering analysis
+dmatrix<-as.matrix(Gen075)
+dmatrix2<-t(dmatrix)
+dobj<-dist(dmatrix2, method = "euclidean", diag = FALSE, upper = FALSE, p = 2)
+hclust<-hclust(dobj, method = "complete", members = NULL)
+
+plot(hclust, labels = NULL, hang = 0.1, check = TRUE,
+     axes = TRUE, frame.plot = FALSE, ann = TRUE, cex = 0.5,
+     main = "Cluster Dendrogram IQR ≥ 0.75 (878 genes)",
+     sub = NULL, xlab = NULL, ylab = "Height")
+
+
+library('dendextend')
+dend<-as.dendrogram(hclust)
+#test branching and coloring
+col_dend<-colour_branches(dend, h =29)
+plot(col_dend)
+abline (h = 29)
+
+#par(mfrow=c(1,1))
+par(mar=c(5, 1, 1, 12))
+dend %>%
+  set("branches_k_col", c("#9933FF","#000000","#0000CC", "#CC0000", "#006600"), k = 5) %>%
+  set("labels_cex", 0.9) %>%
+  #rotate(5,7,6,1:4) %>%
+  plot(main = "Cluster Dendrogram IQR ≥ 0.75 (878 genes)",
+       xlab = "euclidean distance",
+       horiz = TRUE)   
+rect.dendrogram( dend, k=5, which = 3, horiz = TRUE, lty = 5, lwd = 0, col= rgb(0.1, 0.1, 0.4, 0.1))
+                      
+#PCA
+write.csv(Gen075, "IQR75_genes.csv")
+
+library(PCAtools)
+library (tidyverse)
+
+meta<-read.csv("pheno_data_part.csv")
+meta<-column_to_rownames(meta, var = "sample")
+Gen075<-read.csv("IQR75_genes.csv")
+Gen075<-column_to_rownames(Gen075, var = "X")
+
+pca_object<-pca(Gen075,metadata = meta, scale = TRUE)
+
+biplot(pca_object,
+       lab = NULL,
+       colby = 'population',
+       pointSize = 7.0,
+       shape = 'Source', 
+       legendPosition = 'right')
+       
+       
+#PCA-loading analysis
+
+plotloadings(pca_object,
+             components = getComponents(pca_object, seq_len(2)),
+             rangeRetain = 0.05,
+             labSize = 8.0,
+             title = 'Loadings plot',
+             subtitle = 'PC1, PC2',
+             caption = 'Top 5% variables',
+             shape = 24,
+             shapeSizeRange = c(10, 10),
+             ylim = c(-0.08, 0.15),
+             lengthConnectors = unit(0.01, 'npc'),
+             col = c('limegreen', 'black', 'red3'),
+             drawConnectors = TRUE)
+             
+loadings<-pca_object$loadings 
+write.csv(loadings,"PCA_loadings.csv")
