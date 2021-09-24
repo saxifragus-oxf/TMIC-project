@@ -1,0 +1,155 @@
+library("tidyverse")
+library("DESeq2")
+library("vsn")
+library("glmpca")
+library("genefilter")
+library("AnnotationDbi")
+library("org.Mm.eg.db")
+library("org.Hs.eg.db")
+library("dplyr")
+library("ggplot2")
+library("biomaRt")
+library("edgeR")
+library("caroline")
+
+
+#load data and remove all row only containing zeros
+T.Seq<-read.csv("Thornton.data.csv")
+T.Seq.part<-T.Seq[!rowSums(T.Seq[,-1]==0)==25,]
+
+#removes genes with lower than 10 total counts (=lowly expressed)
+keep.t<-rowSums(T.Seq.part[,-1]) >=10
+T.Seq.part<-T.Seq.part[keep.t,]
+nrow(T.Seq.part)
+#[1] 15583
+
+#<-filterByExpr(T.Seq.part[,-1], min.prop = 0.12)
+keep.t<-filterByExpr(T.Seq.part[,-1])
+dim(T.Seq.part<-T.Seq.part[keep.t,])
+
+
+#annotate and get rid of duplicates and NAs
+T_genes <- substr(T.Seq.part$id, 1, 18)
+T.Seq.part$symbol <- mapIds(org.Mm.eg.db,
+                       keys=T_genes,
+                       column="SYMBOL",
+                       keytype="ENSEMBL",
+                       multiVals="first")
+T.Seq.part<-na.omit(T.Seq.part)
+anyDuplicated(T.Seq.part$symbol)
+T.Seq.part<-T.Seq.part[!duplicated(T.Seq.part$symbol), ]
+rm(T_genes, keep.t)
+T.Seq.part<-T.Seq.part[2:27]
+T.Seq.part <-T.Seq.part[c(26,1:25)]
+
+#w/o the MAITs (unreliable stain)
+T.Seq.part.mait<-T.Seq.part[,-c(17:21)]
+
+#run the Dseq2 pipeline!
+#1)obtain coldata, make a data table that contains the gene names a row names
+
+coldata<-read.csv("coldata_T.csv")
+#remove MAITs
+coldata<-coldata[-c(16:20),]
+row.names(coldata)<-NULL
+coldata<-column_to_rownames(coldata, var="X")
+
+rownames(T.Seq.part.mait)<-NULL
+T.Seq.part.mait<-column_to_rownames(T.Seq.part.mait, var = "symbol")
+
+#2)create a dds object 
+dds <- DESeqDataSetFromMatrix(countData = T.Seq.part.mait,
+                                 colData = coldata,
+                                 design = ~ population)
+
+
+#vsd transformation + PCAs to check if the data make sense
+vsd <- vst(dds, blind = FALSE)
+plotPCA(vsd, intgroup = c("population"))
+
+#PCA.data<-plotPCA(vsd, intgroup = c("population"), returnData = TRUE)
+#write.csv(PCA.data, "Thornton_PCA.data.csv")
+# --> these lines were sed to create the PCA for Emilys data using a less strictly filterd version
+
+#normalisation
+dds <- DESeq(dds)
+
+#results
+res_CD4_wtDN <- results(dds, contrast = c("population","wtDN", "CD4"))
+res_CD4_CbirDN <- results(dds, contrast = c("population","CbirDN", "CD4"))
+
+write.delim(as.data.frame(res_CD4_wtDN),"CD4_DN_diffgenes.txt", row.names = TRUE)
+write.delim(as.data.frame(res_CD4_CbirDN),"CD4_Cbir_diffgenes.txt", row.names = TRUE)
+
+
+#human data
+
+H.Seq<-read.csv("raw.count.csv")
+H.Seq.part<-H.Seq[!rowSums(H.Seq[,-1]==0)==12,]
+
+#removes genes with lower than 10 total counts (=lowly expressed)
+keep.h<-rowSums(H.Seq.part[,-1]) >=10
+H.Seq.part<-H.Seq.part[keep.h,]
+nrow(H.Seq.part)
+#[1] 20158
+
+keep.h<-filterByExpr(H.Seq.part[,-1], min.prop = 0.25)
+dim(H.Seq.part<-H.Seq.part[keep.h,])
+#8848   13
+
+#annotate and get rid of duplicates and NAs
+H_genes <- substr(H.Seq.part$X, 1, 15)
+H.Seq.part$symbol <- mapIds(org.Hs.eg.db,
+                            keys=H_genes,
+                            column="SYMBOL",
+                            keytype="ENTREZID",
+                            multiVals="first")
+H.Seq.part<-na.omit(H.Seq.part)
+anyDuplicated(H.Seq.part$symbol)
+# 0
+
+rm(H_genes, keep.h)
+H.Seq.part<-H.Seq.part[2:14]
+H.Seq.part <-H.Seq.part[c(13,1:12)]
+
+#run the Dseq2 pipeline!
+#1)obtain coldata, make a data table that contains the gene names a row names
+
+coldata<-read.csv("coldata_Hackstein.csv")
+row.names(coldata)<-NULL
+coldata<-column_to_rownames(coldata, var="X")
+
+rownames(H.Seq.part)<-NULL
+H.Seq.part<-column_to_rownames(H.Seq.part, var = "symbol")
+
+#2)create a dds object 
+dds <- DESeqDataSetFromMatrix(countData = H.Seq.part,
+                              colData = coldata,
+                              design = ~ bigGROUP)
+
+dds.2 <- DESeqDataSetFromMatrix(countData = H.Seq.part,
+                              colData = coldata,
+                              design = ~ population)
+
+
+#vsd transformation + PCAs to check if the data make sense
+vsd <- vst(dds, blind = FALSE)
+vsd.2 <- vst(dds.2, blind = FALSE)
+plotPCA(vsd, intgroup = c("population", "bigGROUP"))
+
+#normalisation
+dds <- DESeq(dds)
+dds.2 <- DESeq(dds.2)
+
+#results
+res_hi_neg <- results(dds, contrast = c("bigGROUP","hi_DP", "int_neg"))
+#value needs to be specified as a factor in the dds design formular
+
+res_hi_neg.s <-results(dds.2, contrast = c("population","hi", "neg"))
+res_hi_int.s <-results(dds.2, contrast = c("population","hi", "low"))
+res_DP_neg.s <-results(dds.2, contrast = c("population","DP", "neg"))
+res_DP_int.s <-results(dds.2, contrast = c("population","DP", "low"))
+
+
+library("caroline")
+write.delim(as.data.frame(res_hi_neg),"hi_neg_diffgenes.txt", row.names = TRUE)
