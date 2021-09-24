@@ -1,0 +1,43 @@
+# GO-term analysis of the genes driving PC1 and 2.
+library(clusterProfiler)
+library(enrichplot)
+
+PC1pos<-read.csv("PC1_positive.csv")
+PC2pos<-read.csv("PC2_positive.csv")
+
+PC1_genes<-as.character(PC1pos$X)
+PC2_genes<-as.character(PC2pos$X)
+
+ego_PC1 <- enrichGO(gene          = PC1_genes,
+                    OrgDb         = org.Mm.eg.db,
+                    keyType = "SYMBOL",
+                    ont           = "BP",
+                    pAdjustMethod = "BH",
+                    pvalueCutoff  = 0.01,
+                    qvalueCutoff  = 0.05,
+                    readable      = FALSE)
+
+ego_PC2 <- enrichGO(gene          = PC2_genes,
+                OrgDb         = org.Mm.eg.db,
+                keyType = "SYMBOL",
+                ont           = "BP",
+                pAdjustMethod = "BH",
+                pvalueCutoff  = 0.01,
+                qvalueCutoff  = 0.05,
+                readable      = FALSE)
+
+dotplot(ego_PC1, showCategory=20) + ggtitle("PC1: GO terms associated with positive loading")
+dotplot(ego_PC2, showCategory=20) + ggtitle("PC2: GO terms associated with positive loading")
+
+write.csv(ego_PC1,"GO_PC1.csv")
+write.csv(ego_PC2,"GO_PC2.csv")
+
+#this analysis contains a lot of redundant terms, too narrow it down and indetify mor unique terms, from terms whose genes overlap to 70% or more only the most parental one was kept.
+ego_PC1.s<- simplify(ego_PC1, cutoff=0.7, by="p.adjust", select_fun=min)
+ego_PC2.s<- simplify(ego_PC2, cutoff=0.7, by="p.adjust", select_fun=min)
+
+write.csv(ego_PC1.s,"GO_PC1_simplified.csv")
+write.csv(ego_PC2.s,"GO_PC2_simplified.csv")
+
+
+enrichMap(ego_PC2)
