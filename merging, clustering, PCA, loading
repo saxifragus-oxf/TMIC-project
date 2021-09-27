@@ -120,7 +120,7 @@ length(id.tmp)
 id.tmp<-intersect(id.tmp, row.names(H_mouse))
 id.tmp<-id.tmp[!is.na(id.tmp)]
 length(id.tmp)
-#[1] 3512
+#[1] 3464
 
 #Merging the datasets
 Imm.T.v.n.<-cbind(imm.Seq.part.v.n[match(id.tmp, row.names(imm.Seq.part.v.n)),],
@@ -131,17 +131,6 @@ Imm.T.H.v.n<-cbind(Imm.T.v.n.[match(id.tmp, row.names(Imm.T.v.n.)),],
                    
 Imm.T.H.v.n<- as.matrix(Imm.T.H.v.n)                  
 
-#remove non-T cell populations (from Immgen) as well as the "MAITs" from the murine colinic T cells
-# reason for the latter: Tetramer-staining wasn't looking very convincing during the sort
-Imm.T.H.v.n.part<-Imm.T.H.v.n[,-c(1:51)]
-Imm.T.H.v.n.part<-Imm.T.H.v.n.part[,-c(10:28)]
-Imm.T.H.v.n.part<-Imm.T.H.v.n.part[,-c(21:41)]
-Imm.T.H.v.n.part<-Imm.T.H.v.n.part[,-c(65:101)]
-Imm.T.H.v.n.part<-Imm.T.H.v.n.part[,-c(65:66)]
-Imm.T.H.v.n.part<-Imm.T.H.v.n.part[,-c(33:38)]
-Imm.T.H.v.n.part<-Imm.T.H.v.n.part[,-c(1:20)]
-Imm.T.H.v.n.part<-Imm.T.H.v.n.part[,-c(65:69)]
-
 # remove batch effects
 library("tidyverse")
 library("sva")
@@ -151,13 +140,31 @@ coldata<-pheno
 modcombat = model.matrix(~1, data=coldata)
 
 combat.Imm.T.H.v.n<-ComBat(Imm.T.H.v.n, batch = batch, 
-                      mod=modcombat, par.prior=TRUE, 
-                      prior.plots=TRUE)
+                           mod=modcombat, par.prior=TRUE, 
+                           prior.plots=TRUE)
+
+
+#remove B cells, macrophages, epithelial cells
+combat.Imm.T.H.v.n.part<-combat.Imm.T.H.v.n[,-c(1:51)]
+combat.Imm.T.H.v.n.part<-combat.Imm.T.H.v.n.part[,-c(10:28)]
+combat.Imm.T.H.v.n.part<-combat.Imm.T.H.v.n.part[,-c(21:41)]
+combat.Imm.T.H.v.n.part<-combat.Imm.T.H.v.n.part[,-c(65:101)]
+combat.Imm.T.H.v.n.part<-combat.Imm.T.H.v.n.part[,-c(65:66)]
+
+#remove immature T cells
+combat.Imm.T.H.v.n.part<-combat.Imm.T.H.v.n.part[,-c(33:38)]
+
+#remove NK cells
+combat.Imm.T.H.v.n.part<-combat.Imm.T.H.v.n.part[,-c(1:20)]
+
+#remove MAIT cells from the colonic T cell dataset as the tetramer stain during the sort was not good
+combat.Imm.T.H.v.n.part<-combat.Imm.T.H.v.n.part[,-c(65:69)]
 
 #filter for the most varable genes                      
 Gen075<-varFilter(combat.Imm.T.H.v.n, var.func=IQR, var.cutoff=0.75, filterByQuantile=TRUE)
 dim(Gen075)
-#[1]  878  81
+#[1]  866  81
+
 
 # Clustering analysis
 dmatrix<-as.matrix(Gen075)
@@ -167,7 +174,7 @@ hclust<-hclust(dobj, method = "complete", members = NULL)
 
 plot(hclust, labels = NULL, hang = 0.1, check = TRUE,
      axes = TRUE, frame.plot = FALSE, ann = TRUE, cex = 0.5,
-     main = "Cluster Dendrogram IQR ≥ 0.75 (878 genes)",
+     main = "Cluster Dendrogram IQR ≥ 0.75 (866 genes)",
      sub = NULL, xlab = NULL, ylab = "Height")
 
 
@@ -184,7 +191,7 @@ dend %>%
   set("branches_k_col", c("#9933FF","#000000","#0000CC", "#CC0000", "#006600"), k = 5) %>%
   set("labels_cex", 0.9) %>%
   #rotate(5,7,6,1:4) %>%
-  plot(main = "Cluster Dendrogram IQR ≥ 0.75 (878 genes)",
+  plot(main = "Cluster Dendrogram IQR ≥ 0.75 (866 genes)",
        xlab = "euclidean distance",
        horiz = TRUE)   
 rect.dendrogram( dend, k=5, which = 3, horiz = TRUE, lty = 5, lwd = 0, col= rgb(0.1, 0.1, 0.4, 0.1))
@@ -212,19 +219,30 @@ biplot(pca_object,
        
 #PCA-loading analysis
 
-plotloadings(pca_object,
-             components = getComponents(pca_object, seq_len(2)),
-             rangeRetain = 0.05,
-             labSize = 8.0,
+loadings<-pca_object$loadings 
+write.csv(loadings,"PCA_loadings.csv")
+
+#extract gene positively contributing to either PC1 or PC2 (saved as PC1/2_positive.csv
+#extract PC1/2 values for genes encoding cytokine receptors
+
+cr <- read.csv("PC_cytokine_receptors.csv", row.names = 1)
+crl<- pca(cr)
+crl[["loadings"]][1]<-cr[2]
+crl[["loadings"]][2]<-cr[3]
+
+#loading analysis depicting only the cytokine receptors
+plotloadings(crl,
+             components = getComponents(crl, seq_len(2)),
+             rangeRetain = 0.5,
+             labSize = 5.0,
              title = 'Loadings plot',
              subtitle = 'PC1, PC2',
-             caption = 'Top 5% variables',
+             caption = 'Cytokine receptors',
              shape = 24,
              shapeSizeRange = c(10, 10),
-             ylim = c(-0.08, 0.15),
+             ylim = c(-0.08, 0.12),
              lengthConnectors = unit(0.01, 'npc'),
              col = c('limegreen', 'black', 'red3'),
              drawConnectors = TRUE)
              
-loadings<-pca_object$loadings 
-write.csv(loadings,"PCA_loadings.csv")
+
