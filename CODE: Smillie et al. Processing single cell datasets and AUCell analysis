@@ -88,7 +88,7 @@ Milner<-as.vector(geneModules[2,])
 Milner<-Milner[1:118]
 
 # list of genes significanlty overexpressed in CD161hi CD4 T cells compared to CD161- and CD161int cells 
-Hackstein<-as.vector(geneModules[7,])
+Hackstein<-as.vector(geneModules[3,])
 Hackstein<-Hackstein[1:106]
 
 healthy.CD4.cells<-AddModuleScore(object=healthy.CD4.cells, features = list(Beura), name = 'Beura_2019')
@@ -116,10 +116,6 @@ geneSets<-subsetGeneSets(geneSets, row.names(gene.counts))
 cbind(nGenes(geneSets))
 #Trm_Beura_2019                      595
 #Trm_Millner_2017                    115
-#CD161_core_Fergusson_2014           112
-#ITCvsADAPT_ Gutierrez-Arcelus_2019   34
-#ITCvsnonITC_Gutierrez-Arcelus_2019   23
-#Hu_Th17_Codeset                     399
 #Hackstein_CD161hi_DEG                91
 
 geneSets <- setGeneSetNames(geneSets, newNames=paste(names(geneSets), " (", nGenes(geneSets) ,"g)", sep=""))
@@ -157,7 +153,7 @@ labelled.CD4s<-merge(labelled.CD4s, inflamed.CD4.cells, merge.data = TRUE)
 labelled.CD4s@reductions<-CD4.cells@reductions
 
 #KEY is a short self made list of genes associated with the TMIC phenotype. It is included in the "signatures.csv." file.
-KEY<-as.vector(geneModules[8,])
+KEY<-as.vector(geneModules[4,])
 KEY<-KEY[1:4]
 
 labelled.CD4s<-AddModuleScore(object=labelled.CD4s, features = list(KEY), name = 'KEY')
