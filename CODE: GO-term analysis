@@ -1,3 +1,4 @@
+# Figure 4, C and Supplemental Figure 4, D
 # GO-term analysis of the genes driving PC1 and 2.
 library(clusterProfiler)
 library(enrichplot)
