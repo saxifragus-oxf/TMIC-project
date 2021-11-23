@@ -80,10 +80,10 @@ geneModules<-read.csv("signatures.csv", header= FALSE)
 geneModules<-geneModules[,-1]
 geneModules<-column_to_rownames(geneModules, var ="V2")
 
-#
+# list of TRM-associated genes from
 Beura<-as.vector(geneModules[1,])
 
-#list of TRM-associated genes from:
+# list of TRM-associated genes from:
 Milner<-as.vector(geneModules[2,])
 Milner<-Milner[1:118]
 
