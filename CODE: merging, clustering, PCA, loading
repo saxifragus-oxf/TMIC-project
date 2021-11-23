@@ -3,6 +3,7 @@ library(limma, verbose = F)
 library(edgeR, verbose = F)
 
 #Immgen dataset collection
+# Dowload from this website: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE109125
 imm.Seq<-read.csv("GSE109125_Gene_count_table_GENCODE_vM25.csv")
 #remove zero counts
 imm.Seq<-imm.Seq[!rowSums(imm.Seq[,-1]==0)==205,]
