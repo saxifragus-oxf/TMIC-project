@@ -166,7 +166,7 @@ Gen075<-varFilter(combat.Imm.T.H.v.n, var.func=IQR, var.cutoff=0.75, filterByQua
 dim(Gen075)
 #[1]  866  81
 
-
+# Supplemental Figure 4, C
 # Clustering analysis
 dmatrix<-as.matrix(Gen075)
 dmatrix2<-t(dmatrix)
@@ -197,6 +197,7 @@ dend %>%
        horiz = TRUE)   
 rect.dendrogram( dend, k=5, which = 3, horiz = TRUE, lty = 5, lwd = 0, col= rgb(0.1, 0.1, 0.4, 0.1))
                       
+# Figure 4, A
 #PCA
 write.csv(Gen075, "IQR75_genes.csv")
 
@@ -223,7 +224,9 @@ biplot(pca_object,
 loadings<-pca_object$loadings 
 write.csv(loadings,"PCA_loadings.csv")
 
-#extract gene positively contributing to either PC1 or PC2 (saved as PC1/2_positive.csv
+#extract gene positively contributing to either PC1 or PC2 (saved as PC1/2_positive.csv)
+
+# Figure 4,B
 #extract PC1/2 values for genes encoding cytokine receptors
 
 cr <- read.csv("PC_cytokine_receptors.csv", row.names = 1)
