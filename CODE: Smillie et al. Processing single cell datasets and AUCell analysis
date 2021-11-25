@@ -2,6 +2,7 @@
 # https://www.sciencedirect.com/science/article/pii/S0092867419307329?via%3Dihub
 
 # single cells data were obtained from:https://singlecell.broadinstitute.org/single_cell/study/SCP259/intra-and-inter-cellular-rewiring-of-the-human-colon-during-ulcerative-colitis
+# the following files are required: gene_sorted-Imm.matrix.mtx, Imm.genes.tsv, Imm.barcodes2.tsv
 
 library(Matrix)
 library(readr)
