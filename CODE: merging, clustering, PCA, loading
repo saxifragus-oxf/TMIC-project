@@ -202,7 +202,6 @@ rect.dendrogram( dend, k=5, which = 3, horiz = TRUE, lty = 5, lwd = 0, col= rgb(
 write.csv(Gen075, "IQR75_genes.csv")
 
 library(PCAtools)
-library (tidyverse)
 
 meta<-read.csv("pheno_data_part.csv")
 meta<-column_to_rownames(meta, var = "sample")
