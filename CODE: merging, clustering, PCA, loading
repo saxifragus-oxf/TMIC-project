@@ -162,7 +162,7 @@ combat.Imm.T.H.v.n.part<-combat.Imm.T.H.v.n.part[,-c(1:20)]
 combat.Imm.T.H.v.n.part<-combat.Imm.T.H.v.n.part[,-c(65:69)]
 
 #filter for the most varable genes                      
-Gen075<-varFilter(combat.Imm.T.H.v.n, var.func=IQR, var.cutoff=0.75, filterByQuantile=TRUE)
+Gen075<-varFilter(combat.Imm.T.H.v.n.part, var.func=IQR, var.cutoff=0.75, filterByQuantile=TRUE)
 dim(Gen075)
 #[1]  866  81
 
