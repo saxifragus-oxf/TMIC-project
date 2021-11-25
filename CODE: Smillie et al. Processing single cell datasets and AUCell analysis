@@ -8,14 +8,14 @@ library(Matrix)
 library(readr)
 
 # Read in `matrix.mtx`
-counts <- readMM("expression/5cdc540d328cee7a2efc234a/gene_sorted-Imm.matrix.mtx")
+counts <- readMM("gene_sorted-Imm.matrix.mtx")
 
 # Read in `genes.tsv`
-genes <- read_tsv("expression/5cdc540d328cee7a2efc234a/Imm.genes.tsv", col_names = FALSE)
+genes <- read_tsv("Imm.genes.tsv", col_names = FALSE)
 gene_ids <- genes$X1
 
 # Read in `barcodes.tsv`
-cell_ids <- read_tsv("expression/5cdc540d328cee7a2efc234a/Imm.barcodes2.tsv", col_names = FALSE)$X1
+cell_ids <- read_tsv("Imm.barcodes2.tsv", col_names = FALSE)$X1
 
 rownames(counts) <- gene_ids
 colnames(counts) <- cell_ids
