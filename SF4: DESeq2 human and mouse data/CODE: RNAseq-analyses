@@ -150,3 +150,9 @@ write.delim(as.data.frame(res_DP_neg.s),"DP_neg_diffgenes_full.txt", row.names =
 write.delim(as.data.frame(res_DP_int.s),"DP_neg_diffgenes_full.txt", row.names = TRUE)
 
 # These results were grouped in Supplemental Table 2. Comparing the DP and hi results a human TMIC 'consensus' gene module was put together.
+
+#results for GSEA-analysis
+#for this, the two CD161hi or CD161low/int populations were grouped together.
+#To obtain the results, the human anlaysis should be re-run from line 128, specifing 'bigGROUP' as a factor in the dds design formular. 
+#res_hi_neg <- results(dds, contrast = c("bigGROUP","hi_DP", "int_neg"))
+
