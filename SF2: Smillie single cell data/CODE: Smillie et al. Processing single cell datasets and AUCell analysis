@@ -39,15 +39,17 @@ s.data
 s.data <- NormalizeData(s.data)
 s.data <- FindVariableFeatures(s.data, selection.method = "vst", nfeatures = 2000)
 s.data <- ScaleData(s.data)
-s.data <- RunPCA(s.data, features = VariableFeatures(object = s.data)
+s.data <- RunPCA(s.data, features = VariableFeatures(object = s.data))
+s.data <- FindNeighbors(s.data, dims = 1:10)
+s.data <- FindClusters(s.data, resolution = 0.5)
+s.data <- RunUMAP(s.data, dims = 1:10)
+DimPlot(s.data, reduction = "umap")
 
 #potential break-point: processed data can be saved and reloaded:
 #saveRDS(s.data, file = "smilie_data_allcells.rds")
 #s.data<-readRDS("smilie_data_allcells.rds", refhook = NULL)
 
-FeaturePlot(s.data, features = c("CD3E", "CD4", "CD8B",
-                               "CD8A", "ZBTB7B"))
-                               
+FeaturePlot(s.data, features = c("CD3E", "CD4", "CD8B","CD8A"))
 #based on this analysis, CD4 T cells  are in clusters 0, 5,and 14
 
 #isolate CD4s from th dataset
@@ -80,25 +82,27 @@ library("tidyverse")
 geneModules<-read.csv("signatures.csv", header= FALSE)
 geneModules<-geneModules[,-1]
 geneModules<-column_to_rownames(geneModules, var ="V2")
-
-# list of TRM-associated genes from
+                 
+# list of TRM-associated genes from Beura et al., J Ex Med, 2019:
+#https://rupress.org/jem/article/216/5/1214/121030/CD4-resident-memory-T-cells-dominate
 Beura<-as.vector(geneModules[1,])
-
-# list of TRM-associated genes from:
+                 
+# list of TRM-associated genes from Milner et al., NATURE, 2017
+#https://www.nature.com/articles/nature24993
 Milner<-as.vector(geneModules[2,])
 Milner<-Milner[1:118]
-
-# list of genes significanlty overexpressed in CD161hi CD4 T cells compared to CD161- and CD161int cells 
-Hackstein<-as.vector(geneModules[3,])
-Hackstein<-Hackstein[1:106]
-
+                 
+# list of genes significantly overexpressed in CD161hiCD56- and CD161hiCD56+ CD4 T cells compared to CD161- and CD161int cells (human TMIC gene module, this study)
+TMIC<-as.vector(geneModules[3,])
+TMIC<-TMIC[1:26]
+                 
 healthy.CD4.cells<-AddModuleScore(object=healthy.CD4.cells, features = list(Beura), name = 'Beura_2019')
 healthy.CD4.cells<-AddModuleScore(object=healthy.CD4.cells, features = list(Milner), name = 'Milner_2017')
-healthy.CD4.cells<-AddModuleScore(object=healthy.CD4.cells, features = list(Hackstein), name = 'Hackstein_2021')
-
+healthy.CD4.cells<-AddModuleScore(object=healthy.CD4.cells, features = list(TMIC), name = 'TMIC')
+                 
 #inital check of gene module co-expression
-FeaturePlot(healthy.CD4.cells, features = c("Hackstein_20211", "Milner_20171"),cols = c("lightgrey", "#ff0000", "#0033FF"), blend = TRUE, blend.threshold = 0.5 )
-FeaturePlot(healthy.CD4.cells, features = c("Hackstein_20211", "Beura_20191"),cols = c("lightgrey", "#ff0000", "#0033FF"), blend = TRUE, blend.threshold = 0.5 )
+FeaturePlot(healthy.CD4.cells, features = c("TMIC1", "Milner_20171"),cols = c("lightgrey", "#ff0000", "#0033FF"), blend = TRUE, blend.threshold = 0.5 )
+FeaturePlot(healthy.CD4.cells, features = c("TMIC1", "Beura_20191"),cols = c("lightgrey", "#ff0000", "#0033FF"), blend = TRUE, blend.threshold = 0.5 )
 
 #this is computationally quite demanding --> save as rds file to start right here!
 #saveRDS(healthy.CD4.cells, file = "smilie_data_healthyCD4s.rds"
@@ -108,83 +112,70 @@ FeaturePlot(healthy.CD4.cells, features = c("Hackstein_20211", "Beura_20191"),co
 library("data.table")
 library("AUCell")
 library("GSEABase")
-
+                 
 gene.counts<-GetAssayData(healthy.CD4.cells, assay = "RNA", slot = "counts")
-gmtFile<-paste(file.path("signatures4.gmt"), sep="/")
+gmtFile<-paste(file.path("signatures.gmt"), sep="/")
 geneSets<-getGmt((gmtFile))
-
+                 
 geneSets<-subsetGeneSets(geneSets, row.names(gene.counts))
 cbind(nGenes(geneSets))
-#Trm_Beura_2019                      595
-#Trm_Millner_2017                    115
-#Hackstein_CD161hi_DEG                91
-
+#Trm_Beura_2019    595
+#Trm_Milner_2017  115
+#TMIC_human         25
+#KEY_markers         4
+                 
 geneSets <- setGeneSetNames(geneSets, newNames=paste(names(geneSets), " (", nGenes(geneSets) ,"g)", sep=""))
 extraGeneSets <- c(
-  GeneSet(sample(rownames(gene.counts), 150), setName="Random (150g)"),
-  GeneSet(sample(rownames(gene.counts), 500), setName="Random (500g)"))
+                   GeneSet(sample(rownames(gene.counts), 150), setName="Random (150g)"),
+                   GeneSet(sample(rownames(gene.counts), 500), setName="Random (500g)"))
 countsPerGene <- apply(gene.counts, 1, function(x) sum(x>0))
-extraGeneSets<-c(extraGeneSets,
-                 GeneSet(sample(names(countsPerGene)
-                                [which(countsPerGene>quantile(countsPerGene, probs=.95))], 100),
-                         setName = "HK-like(100g)"))
+extraGeneSets<-c(extraGeneSets,GeneSet(sample(names(countsPerGene)[which(countsPerGene>quantile(countsPerGene, probs=.95))], 100),setName = "HK-like(100g)"))
 geneSets<-GeneSetCollection(c(geneSets, extraGeneSets))
 names(geneSets)
-#[1] "Trm_Beura_2019 (595g)"                    "Trm_Millner_2017 (115g)"                  "CD161_core_Fergusson_2014 (112g)"        
-#[4] "ITCvsADAPT_ Gutierrez-Arcelus_2019 (34g)" "ITCvsnonITC_Gutierrez-Arcelus_2019 (23g)" "Hu_Th17_Codeset (399g)"                  
-#[7] "Hackstein_CD161hi_DEG (91g)"              "Random (150g)"                            "Random (500g)"                           
-#[10] "HK-like(100g)                            "Random (500g)"                            "HK-like(100g)"
-
+#[1] "Trm_Beura_2019 (595g)"       "Trm_Milner_2017 (115g)"     "Hackstein_CD161hi_DEG (91g)" "Random (150g)"               "Random (500g)"              
+#[6] "HK-like(100g)"
+                 
 ranks <- AUCell_buildRankings(gene.counts, nCores = 1, plotStats = TRUE)
 cells <- AUCell_calcAUC(geneSets = geneSets, ranks, aucMaxRank = ceiling(0.05 * nrow(ranks)))
-
-par(mfrow=c(4,3))
+                 
+par(mfrow=c(3,3))
 AUC <- AUCell_exploreThresholds(cells, plotHist = TRUE, assign=TRUE)
-
+                 
 write.csv(cells@assays@data@listData, "Smillie_AUC_values.csv")
-#the exported .csv-file contains the AUC values for the differen gen modules in the CD4 T cells.
+#the exported .csv-file contains the AUC values for the different gene modules in the CD4 T cells.
 #data were imported into Prism for a correlation analysis
-
-
-#Supplemental Figure 5, B and D:
-# Differential gene expression analysis of CD4 T cells expressing TMIC-associated genes comparing healthy, inflamed and non-inflamed
-
+                                 
+#Supplemental Figure 5, B:
+#Overall expression of key-genes associated with the TMIC phenotype in CD4 T cells.
+                 
 labelled.CD4s<-merge(healthy.CD4.cells, non_inflamed.CD4.cells, merge.data = TRUE)
 labelled.CD4s<-merge(labelled.CD4s, inflamed.CD4.cells, merge.data = TRUE)
 labelled.CD4s@reductions<-CD4.cells@reductions
-
+                 
 #KEY is a short self made list of genes associated with the TMIC phenotype. It is included in the "signatures.csv." file.
 KEY<-as.vector(geneModules[4,])
 KEY<-KEY[1:4]
-
+                 
 labelled.CD4s<-AddModuleScore(object=labelled.CD4s, features = list(KEY), name = 'KEY')
-
+                 
 cells<-cbind(labelled.CD4s@meta.data$orig.ident, labelled.CD4s@meta.data$KEY1)
 rownames(cells)<-row.names(labelled.CD4s@meta.data)
-
+                 
 write.csv(cells, "ikey_genes.smillie.csv")
-#rearrange in Excel, calculate stats in Prism
-
+#Column 'V2' contains the key gene metascore. Copy all values belonging to either 'healthy', 'inflamed' or 'non-inflamed' cells into Prism and calculate stats.
+                 
+#Supplemental Figure 5, D:
+#Differential gene expression analysis of CD4 T cells expressing TMIC-associated genes comparing healthy, inflamed and non-inflamed
 #obtain only cells expressing the key genes:
 cells<-as.data.frame(cells)
 ikey.cells<-subset(cells, V2 >0)
-
-iKey.CD4s<-subset(x = labelled.CD4s, 
-                cells = intersect(labelled.CD4s@assays$RNA@counts@Dimnames[[2]], row.names(ikey.cells)))
-
-
-#identify genes differntially expressed between the KEY-gene-positive CD4s in healthy, inflamed or non-inflamed.
-iKey.healthy_inflamed<-FindMarkers(labelled.CD4s,
-                         ident.1 = "smillie_healthy", 
-                         group.by = 'orig.ident', 
-                         ident.2 = "smillie_inflamed")
-
-iKey.healthy_noninflamed<-FindMarkers(labelled.CD4s,
-                                   ident.1 = "smillie_noninflamed", 
-                                   group.by = 'orig.ident', 
-                                   ident.2 = "smillie_healthy")
-
-iKey.noninflamed_inflamed<-FindMarkers(labelled.CD4s,
-                                      ident.1 = "smillie_noninflamed", 
-                                      group.by = 'orig.ident', 
-                                      ident.2 = "smillie_inflamed")
+                 
+iKey.CD4s<-subset(x = labelled.CD4s, cells = intersect(labelled.CD4s@assays$RNA@counts@Dimnames[[2]], row.names(ikey.cells)))
+                 
+                 
+#identify genes differentially expressed between the KEY-gene-positive CD4s in healthy, inflamed or non-inflamed.
+iKey.healthy_inflamed<-FindMarkers(labelled.CD4s, ident.1 = "smillie_healthy", group.by = 'orig.ident', ident.2 = "smillie_inflamed")
+                 
+iKey.healthy_noninflamed<-FindMarkers(labelled.CD4s, ident.1 = "smillie_noninflamed", group.by = 'orig.ident', ident.2 = "smillie_healthy")
+                 
+iKey.noninflamed_inflamed<-FindMarkers(labelled.CD4s, ident.1 = "smillie_noninflamed", group.by = 'orig.ident', ident.2 = "smillie_inflamed")
