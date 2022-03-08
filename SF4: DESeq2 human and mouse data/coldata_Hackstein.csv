@@ -1,0 +1,13 @@
+,sample,donor,population,batch,species,experiment,tissue,bigGROUP
+CD161int 1,1,D112123,low,2,human,Hackstein,colon,int_neg
+CD161neg 2,2,D112141,neg,2,human,Hackstein,colon,int_neg
+CD161hi 1,3,D112123,hi,2,human,Hackstein,colon,hi_DP
+CD161neg 1,4,D112123,neg,2,human,Hackstein,colon,int_neg
+CD161hiCD56pos 3,5,D112147,DP,2,human,Hackstein,colon,hi_DP
+CD161hi 3,6,D112147,hi,2,human,Hackstein,colon,hi_DP
+CD161hi 2,7,D112141,hi,2,human,Hackstein,colon,hi_DP
+CD161int 3,8,D112147,low,2,human,Hackstein,colon,int_neg
+CD161hiCD56pos 2,9,D112141,DP,2,human,Hackstein,colon,hi_DP
+CD161neg 3,10,D112147,neg,2,human,Hackstein,colon,int_neg
+CD161hiCD56pos 1,11,D112123,DP,2,human,Hackstein,colon,hi_DP
+CD161int 2,12,D112141,low,2,human,Hackstein,colon,int_neg
