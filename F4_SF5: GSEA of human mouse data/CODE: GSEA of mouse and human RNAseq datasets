@@ -2,90 +2,67 @@ library("fgsea")
 library("tidyverse")
 library("data.table")
 library("msigdbr")
+library("ggplot2")
 
+# To run this analyses, the results files from 'SF4: DESeq2 human and mouse data' are needed:
+# 'CD4_DN_diffgenes.txt', 'CD4_Cbir_diffgenes.txt', and 'hi_neg_diffgenes.txt'
 
 #1: GSEA of mouse data
-# Two files, containing genes differntially expressed between wt or Cbir DN cells compared to CD4 T cells 
-CD4.DN.04<-read.delim("CD4_DN_diffgenes.04.txt", row.names = NULL)
-CD4.DN.res.04<-CD4.DN.04[,c(1,3)]
-CD4.DN.ranks.04<-deframe(CD4.DN.res.04)
-head(CD4.DN.ranks.04)
+# Genes differntially expressed between wt or Cbir DN cells compared to CD4 T cells 
+CD4.DN<-read.delim("CD4_DN_diffgenes.txt", row.names = NULL)
+CD4.DN.res<-CD4.DN[,c(1,3)]
+CD4.DN.ranks<-deframe(CD4.DN.res)
+head(CD4.DN.ranks)
 
-Cbir.CD4.04<-read.delim("CD4_Cbir_diffgenes.04.txt", row.names = NULL)
-Cbir.CD4.res.04<-Cbir.CD4.04[,c(1,3)]
-Cbir.CD4.ranks.04<-deframe(Cbir.CD4.res.04)
-head(Cbir.CD4.ranks.04)
-
-CD4.DN.06<-read.delim("CD4_DN_diffgenes.06.txt", row.names = NULL)
-CD4.DN.res.06<-CD4.DN.06[,c(1,3)]
-CD4.DN.ranks.06<-deframe(CD4.DN.res.06)
-head(CD4.DN.ranks.06)
-
-Cbir.CD4.06<-read.delim("CD4_Cbir_diffgenes.06.txt", row.names = NULL)
-Cbir.CD4.res.06<-Cbir.CD4.06[,c(1,3)]
-Cbir.CD4.ranks.06<-deframe(Cbir.CD4.res.06)
-head(Cbir.CD4.ranks.06)
-
+Cbir.CD4<-read.delim("CD4_Cbir_diffgenes.txt", row.names = NULL)
+Cbir.CD4.res<-Cbir.CD4[,c(1,3)]
+Cbir.CD4.ranks<-deframe(Cbir.CD4.res)
+head(Cbir.CD4.ranks)
 
 bp_gene_sets_mouse = msigdbr(species = "Mus musculus", category = "C5", subcategory = "BP")
 #this loads the GO datasets (C5), BP =  biological process 
 
 msigdbr_list_mouse = split(x = bp_gene_sets_mouse$gene_symbol, f = bp_gene_sets_mouse$gs_name)
 
-fgsea.CD4.DN.04 <- fgseaMultilevel(pathways = msigdbr_list_mouse, 
-                                   CD4.DN.ranks.04,
+fgsea.CD4.DN <- fgseaMultilevel(pathways = msigdbr_list_mouse, 
+                                   CD4.DN.ranks,
                                    eps = 0,
                                    minSize = 20)
 
-fgsea.Cbir.CD4.04 <- fgseaMultilevel(pathways = msigdbr_list_mouse, 
-                                     Cbir.CD4.ranks.04,
+fgsea.Cbir.CD4 <- fgseaMultilevel(pathways = msigdbr_list_mouse, 
+                                     Cbir.CD4.ranks,
                                      eps = 0,
                                      minSize = 20)
 
-fgsea.CD4.DN.06 <- fgseaMultilevel(pathways = msigdbr_list_mouse, 
-                      CD4.DN.ranks.06,
-                      eps = 0,
-                      minSize = 20)
 
-fgsea.Cbir.CD4.06 <- fgseaMultilevel(pathways = msigdbr_list_mouse, 
-                                Cbir.CD4.ranks.06,
-                                eps = 0,
-                                minSize = 20)
-
-fwrite(fgsea.CD4.DN.04, file="fgseaRes.CD4.DN.04.txt", sep="\t", sep2=c("", " ", ""))
-fwrite(fgsea.Cbir.CD4.04, file="fgsea.Cbir.CD4.04.txt", sep="\t", sep2=c("", " ", ""))
-
-fwrite(fgsea.CD4.DN.06, file="fgseaRes.CD4.DN.06.txt", sep="\t", sep2=c("", " ", ""))
-fwrite(fgsea.Cbir.CD4.06, file="fgsea.Cbir.CD4.06.txt", sep="\t", sep2=c("", " ", ""))
+fwrite(fgsea.CD4.DN, file="fgseaRes.CD4.DN.txt", sep="\t", sep2=c("", " ", ""))
+fwrite(fgsea.Cbir.CD4, file="fgsea.Cbir.CD4.txt", sep="\t", sep2=c("", " ", ""))
 
 
-head(fgsea.CD4.DN.04[order(pval), ])
-head(fgsea.Cbir.CD4.04[order(pval), ])
 
-plotEnrichment(msigdbr_list_mouse[["GO_T_CELL_ACTIVATION"]],
-               Cbir.CD4.ranks.04) + labs(title="T Cell activation", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
+plotEnrichment(msigdbr_list_mouse[["GOBP_T_CELL_ACTIVATION"]],
+               Cbir.CD4.ranks) + labs(title="T Cell activation", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
 
-plotEnrichment(msigdbr_list_mouse[["GO_CYTOKINE_PRODUCTION_INVOLVED_IN_IMMUNE_RESPONSE"]],
-               Cbir.CD4.ranks.04) + labs(title="GO_CYTOKINE_PRODUCTION_INVOLVED_IN_IMMUNE_RESPONSE", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
+plotEnrichment(msigdbr_list_mouse[["GOBP_CYTOKINE_PRODUCTION_INVOLVED_IN_IMMUNE_RESPONSE"]],
+               Cbir.CD4.ranks) + labs(title="GO_CYTOKINE_PRODUCTION_INVOLVED_IN_IMMUNE_RESPONSE", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
 
-plotEnrichment(msigdbr_list_mouse[["GO_POSITIVE_REGULATION_OF_ADAPTIVE_IMMUNE_RESPONSE"]],
-               Cbir.CD4.ranks.04) + labs(title="GO_POSITIVE_REGULATION_OF_ADAPTIVE_IMMUNE_RESPONSE", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
+plotEnrichment(msigdbr_list_mouse[["GOBP_POSITIVE_REGULATION_OF_ADAPTIVE_IMMUNE_RESPONSE"]],
+               Cbir.CD4.ranks) + labs(title="GO_POSITIVE_REGULATION_OF_ADAPTIVE_IMMUNE_RESPONSE", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
 
-plotEnrichment(msigdbr_list_mouse[["GO_CELL_KILLING"]],
-               Cbir.CD4.ranks.04) + labs(title="GO_CELL_KILLING", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
+plotEnrichment(msigdbr_list_mouse[["GOBP_CELL_KILLING"]],
+               Cbir.CD4.ranks) + labs(title="GO_CELL_KILLING", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
 
-plotEnrichment(msigdbr_list_mouse[["GO_T_CELL_ACTIVATION"]],
-               CD4.DN.ranks.04) + labs(title="T Cell activation", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
+plotEnrichment(msigdbr_list_mouse[["GOBP_T_CELL_ACTIVATION"]],
+               CD4.DN.ranks) + labs(title="T Cell activation", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
 
-plotEnrichment(msigdbr_list_mouse[["GO_CYTOKINE_PRODUCTION_INVOLVED_IN_IMMUNE_RESPONSE"]],
-               CD4.DN.ranks.04) + labs(title="GO_CYTOKINE_PRODUCTION_INVOLVED_IN_IMMUNE_RESPONSE", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
+plotEnrichment(msigdbr_list_mouse[["GOBP_CYTOKINE_PRODUCTION_INVOLVED_IN_IMMUNE_RESPONSE"]],
+               CD4.DN.ranks) + labs(title="GO_CYTOKINE_PRODUCTION_INVOLVED_IN_IMMUNE_RESPONSE", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
 
-plotEnrichment(msigdbr_list_mouse[["GO_POSITIVE_REGULATION_OF_ADAPTIVE_IMMUNE_RESPONSE"]],
-           CD4.DN.ranks.04) + labs(title="GO_POSITIVE_REGULATION_OF_ADAPTIVE_IMMUNE_RESPONSE", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
+plotEnrichment(msigdbr_list_mouse[["GOBP_POSITIVE_REGULATION_OF_ADAPTIVE_IMMUNE_RESPONSE"]],
+               CD4.DN.ranks) + labs(title="GO_POSITIVE_REGULATION_OF_ADAPTIVE_IMMUNE_RESPONSE", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
 
-plotEnrichment(msigdbr_list_mouse[["GO_CELL_KILLING"]],
-               CD4.DN.ranks.04) + labs(title="GO_CELL_KILLING", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
-
+plotEnrichment(msigdbr_list_mouse[["GOBP_CELL_KILLING"]],
+               CD4.DN.ranks) + labs(title="GO_CELL_KILLING", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
 
 
 #2: GSEA of human data
@@ -94,7 +71,6 @@ hi_neg<-read.delim("hi_neg_diffgenes.txt", row.names = NULL)
 hi_neg.res<-hi_neg[,c(1,3)]
 hi_neg.ranks<-deframe(hi_neg.res)
 head(hi_neg.ranks)
-
 
 bp_gene_sets_human = msigdbr(species = "Homo sapiens", category = "C5", subcategory = "BP")
 #this loads the GO datasets (C5), BP =  biological process 
@@ -107,22 +83,14 @@ fgsea.hi_neg <- fgseaMultilevel(pathways = msigdbr_list_human,
 
 fwrite(fgsea.hi_neg, file="fgseaRes.hi_neg.txt", sep="\t", sep2=c("", " ", ""))
 
-
-head(fgsea.hi_neg[order(pval), ])
-
-plotEnrichment(msigdbr_list_human[["GO_T_CELL_ACTIVATION"]],
+plotEnrichment(msigdbr_list_human[["GOBP_T_CELL_ACTIVATION"]],
                hi_neg.ranks) + labs(title="T Cell activation", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
 
-plotEnrichment(msigdbr_list_human[["GO_CYTOKINE_PRODUCTION_INVOLVED_IN_IMMUNE_RESPONSE"]],
+plotEnrichment(msigdbr_list_human[["GOBP_CYTOKINE_PRODUCTION_INVOLVED_IN_IMMUNE_RESPONSE"]],
                hi_neg.ranks) + labs(title="GO_CYTOKINE_PRODUCTION_INVOLVED_IN_IMMUNE_RESPONSE", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
 
-plotEnrichment(msigdbr_list_human[["GO_POSITIVE_REGULATION_OF_ADAPTIVE_IMMUNE_RESPONSE"]],
+plotEnrichment(msigdbr_list_human[["GOBP_POSITIVE_REGULATION_OF_ADAPTIVE_IMMUNE_RESPONSE"]],
                hi_neg.ranks) + labs(title="GO_POSITIVE_REGULATION_OF_ADAPTIVE_IMMUNE_RESPONSE", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
 
-plotEnrichment(msigdbr_list_human[["GO_CELL_KILLING"]],
+plotEnrichment(msigdbr_list_human[["GOBP_CELL_KILLING"]],
                hi_neg.ranks) + labs(title="GO_CELL_KILLING", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
-
-
-
-
-
