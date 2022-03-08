@@ -1,0 +1,220 @@
+# This code allows the re-production of SF4, D, a PCA using only the murine and human colonic T cell populations newly presented in this paper.
+
+
+BiocManager::install("edgeR")
+library(limma, verbose = F)
+library(edgeR, verbose = F)
+
+setwd("~/Documents/Experiments/CPH_236_data_merger_filtertest/Emiliys data")
+T.Seq<-read.csv("Thornton.data.csv")
+dim(T.Seq)
+#[1] 53379    26
+
+#removes zero counts
+T.Seq.part<-T.Seq[!rowSums(T.Seq[,-1]==0)==25,]
+
+
+#removes genes with lower than 10 total counts (=lowly expressed)
+keep.t<-rowSums(T.Seq.part[,-1]) >=10
+T.Seq.part<-T.Seq.part[keep.t,]
+nrow(T.Seq.part)
+#[1] 15583
+
+keep.t<-filterByExpr(T.Seq.part[,-1], min.prop = 0.12)
+dim(T.Seq.part<-T.Seq.part[keep.t,])
+#  [1] 5015   26
+
+#Gene names in ENSEMBL format, want actual gene names
+BiocManager::install("org.Mm.eg.db")
+library("org.Mm.eg.db")
+
+T_genes <- substr(T.Seq.part$id, 1, 18)
+T.Seq.part$symbol <- mapIds(org.Mm.eg.db,
+                       keys=T_genes,
+                       column="SYMBOL",
+                       keytype="ENSEMBL",
+                       multiVals="first")
+T.Seq.part<-na.omit(T.Seq.part)
+anyDuplicated(T.Seq.part$symbol)
+T.Seq.part<-T.Seq.part[!duplicated(T.Seq.part$symbol), ]
+
+#rearrange the data table
+T.Seq.part<-T.Seq.part[2:27]
+T.Seq.part <-T.Seq.part[c(26,1:25)]
+
+
+setwd("~/Documents/Experiments/CPH_236_data_merger_filtertest/Hackstein_data")
+
+H.Seq<-read.csv("raw.count.csv")
+dim(H.Seq)
+#[1] 28395    13
+
+#removes zero counts
+H.Seq.part<-H.Seq[!rowSums(H.Seq[,-1]==0)==12,]
+
+#removes genes with lower than 10 total counts (=lowly expressed)
+keep.h<-rowSums(H.Seq.part[,-1]) >=10
+H.Seq.part<-H.Seq.part[keep.h,]
+nrow(H.Seq.part)
+#[1] 20158
+
+keep.h<-filterByExpr(H.Seq.part[,-1], min.prop = 0.25)
+dim(H.Seq.part<-H.Seq.part[keep.h,])
+#[1] 8848   13
+
+#Gene names in ENTREZ format, want actual gene names
+BiocManager::install("org.Hs.eg.db")
+library("org.Hs.eg.db")
+
+H_genes <- substr(H.Seq.part$X, 1, 15)
+H.Seq.part$symbol <- mapIds(org.Hs.eg.db,
+                       keys=H_genes,
+                       column="SYMBOL",
+                       keytype="ENTREZID",
+                       multiVals="first")
+H.Seq.part<-na.omit(H.Seq.part)
+anyDuplicated(H.Seq.part$symbol)
+#[1] 0
+
+H.Seq.part<-H.Seq.part[2:14]
+H.Seq.part <-H.Seq.part[c(13,1:12)]
+
+# PART 4: Data transformation and normalisation
+# transformation with voom (limma), normalisation with vsn
+
+BiocManager::install("vsn")
+library ("vsn")
+
+T.Seq.part.v<-voom(T.Seq.part[,-1], plot = TRUE)
+H.Seq.part.v<-voom(H.Seq.part[,-1], plot = TRUE)
+
+BiocManager::install("supraHex")
+library(supraHex)
+
+T.Seq.part.v.n<-vsn2(T.Seq.part.v$E)
+meanSdPlot(T.Seq.part.v.n)
+T.Seq.part.v.n<-exprs(T.Seq.part.v.n)
+row.names(T.Seq.part.v.n)<-T.Seq.part$symbol
+
+H.Seq.part.v.n<-vsn2(H.Seq.part.v$E)
+meanSdPlot(H.Seq.part.v.n)
+H.Seq.part.v.n<-exprs(H.Seq.part.v.n)
+row.names(H.Seq.part.v.n)<-H.Seq.part$symbol
+
+#PART 6: Add mouse gene symbols to the human dataset
+BiocManager::install("biomaRt")
+library("biomaRt")
+human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+mouse = useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+
+Human_genes<-as.vector(row.names(H.Seq.part.v.n))
+H_mouse_ID = getLDS(attributes = c("hgnc_symbol"), 
+                      filters = "hgnc_symbol", 
+                      values = Human_genes , 
+                      mart = human, 
+                      attributesL = c("mgi_symbol"), 
+                      martL = mouse, uniqueRows=T)
+
+H_mouse_ID<-H_mouse_ID[!duplicated(H_mouse_ID$HGNC.symbol), ]
+H_mouse_ID<-H_mouse_ID[!duplicated(H_mouse_ID$MGI.symbol), ]
+#limitation here: everything that has multiple orthologs in one of the species gets excluded
+
+write.csv(H.Seq.part.v.n, "Hackstein_t_n.csv")
+H_merge<-read.csv("Hackstein_t_n.csv")
+
+H_merge<-merge(H_mouse_ID,H_merge, by.x="HGNC.symbol", by.y="X")
+H_mouse<-H_merge[-1]
+
+row.names(H_mouse)<-H_mouse$MGI.symbol
+H_mouse<-H_mouse[-1]
+
+# PART 7: identify which genes are common between the datasets
+
+#intersect Immgen - Thornton
+id.tmp<-intersect(row.names(H_mouse), row.names(T.Seq.part.v.n))
+id.tmp<-id.tmp[!is.na(id.tmp)]
+length(id.tmp)
+#[1] 3470
+
+
+# PART 8: Merging the datasets
+H.T.v.n<-cbind(H_mouse[match(id.tmp, rownames(H_mouse)),],
+                    T.Seq.part.v.n[match(id.tmp, rownames(T.Seq.part.v.n)),])
+
+
+setwd("~/Documents/Experiments/CPH_236_data_merger_filtertest")
+write.csv(H.T.v.n, "T_H_merged.csv")
+
+H.T.v.n<- as.matrix(H.T.v.n)
+class(H.T.v.n)
+
+
+# PART 9: remove batch effects
+#install.packages("dplyr")
+#library("dplyr")
+library("tidyverse")
+BiocManager::install("sva")
+library("sva")
+
+pheno<-read.csv("pheno_data_HT.csv")
+batch=pheno$Batch
+coldata<-pheno
+
+modcombat = model.matrix(~1, data=coldata)
+
+combat.H.T.v.n<-ComBat(H.T.v.n, batch = batch, 
+                      mod=modcombat, par.prior=TRUE, 
+                      prior.plots=FALSE)
+#PART 10: PCA on all data to test merging
+library("ggplot2")
+
+PCA <- prcomp(t(combat.H.T.v.n), scale = TRUE)
+percentVar <- round(100*PCA$sdev^2/sum(PCA$sdev^2),1)
+sd_ratio <- sqrt(percentVar[2] / percentVar[1])
+
+PCA_data <- data.frame(PC1 = PCA$x[,1], PC2 = PCA$x[,2],
+                      experiment = 
+                       pheno$population)
+
+ggplot(PCA_data, aes(PC1, PC2)) +
+  geom_point(aes(color = experiment)) +
+  ggtitle("PCA plot post ComBat Thornton Hackstein") +
+  xlab(paste0("PC1, VarExp: ", percentVar[1], "%")) +
+  ylab(paste0("PC2, VarExp: ", percentVar[2], "%")) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+#set 4: remove MAIT cells from Emilys set as the Tetramer stain was not that great
+combat.H.T.v.n.part<-combat.H.T.v.n[,-c(28:32)]
+
+Gen05<-varFilter(combat.H.T.v.n.part, var.func=IQR, var.cutoff=0.5, filterByQuantile=TRUE)
+dim(Gen05)
+#[1] 1735   32
+
+
+
+
+BiocManager::install('PCAtools')
+library(PCAtools)
+
+pheno_part<-read.csv("pheno_data_HT_part.csv")
+meta<-column_to_rownames(pheno_part, var = "sample")
+
+pca_object.3<-pca(Gen05,metadata = meta, scale = TRUE)
+
+screeplot(pca_object.3, axisLabSize = 14, titleLabSize = 22)
+
+biplot(pca_object.3,
+       lab = NULL,
+       colby = 'population',
+       pointSize = 7.0,
+       shape = 'Source', 
+       legendPosition = 'right',
+       title ='Thornton Hackstein IQR > 0.5 (1734 genes)')
+
+
+
+
+
+
+
