@@ -1,115 +1,116 @@
-# Dataset published by Fitzpatrick et al. 
+# Dataset published by FitzPatrick et al. 
 # hhttps://www.sciencedirect.com/science/article/pii/S2211124720316508?via%3Dihub
 
-# raw data can be obtained from: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE162687
+# gene counts can be obtained from: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE162687
 
 library("Seurat")
 library("tidyverse")
 
-data<-readRDS("GI2792_graft_donor_CD4.rds")
-data.v3 <- CreateSeuratObject(counts = data@raw.data, project = "GO2792",  min.cells = 3, min.features = 200)
+GSM4957163_filtered_gene_counts <- read.delim("GSM4957163_filtered_gene_counts.txt")
+rownames(GSM4957163_filtered_gene_counts)<- GSM4957163_filtered_gene_counts$Gene.name
+GSM4957163_filtered_gene_counts<-GSM4957163_filtered_gene_counts[,-1]
 
-
+f.data <- CreateSeuratObject(counts = GSM4957163_filtered_gene_counts, project = "G02792", min.cells = 3, min.features = 200)
+f.data
+#An object of class Seurat 
+#10951 features across 974 samples within 1 assay 
+#Active assay: RNA (10951 features, 0 variable features)
 
 #filtering based on mRNA content and the percentage of mitochondrial genes
-mito.genes <- grep(pattern = "^MT-", x = rownames(data.v3@assays[["RNA"]]), value = TRUE)
-percent.mito <- Matrix::colSums(data.v3@assays[["RNA"]][mito.genes, ])/Matrix::colSums(data.v3@assays[["RNA"]])
-data.v3<- AddMetaData(object = data.v3, metadata = percent.mito, col.name = "percent.mito")
-data.v3.mt <- subset(x = data.v3, subset = nFeature_RNA > 200 & nFeature_RNA < 2600 & percent.mito >  -Inf & percent.mito < 0.1 )
+mito.genes <- grep(pattern = "^MT-", x = rownames(f.data@assays[["RNA"]]), value = TRUE)
+percent.mito <- Matrix::colSums(f.data@assays[["RNA"]][mito.genes, ])/Matrix::colSums(f.data@assays[["RNA"]])
+f.data<- AddMetaData(object = f.data, metadata = percent.mito, col.name = "percent.mito")
+f.data.mt <- subset(x = f.data, subset = nFeature_RNA > 200 & nFeature_RNA < 2600 & percent.mito >  -Inf & percent.mito < 0.1 )
 
-
-data.v3.mt <- NormalizeData(object = data.v3.mt, normalization.method = "LogNormalize", scale.factor = 10000)
-data.v3.mt <- FindVariableFeatures(object = data.v3.mt, 
-                                   mean.function = ExpMean, 
-                                   dispersion.function = LogVMR, 
-                                   x.low.cutoff = 0.0125, x.high.cutoff = 3, y.cutoff = 0.5,
-                                   nfeatures = 2000)
-                                   
-data.v3.mt <- ScaleData(object = data.v3.mt, vars.to.regress = c("nCounts_RNA", "percent.mito"))
-
-#Dimensonal reduction and identification of CD4 T cells
-data.v3.mt <- RunPCA(object = data.v3.mt,  npcs = 30, verbose = FALSE)
-data.v3.mt <- RunTSNE(object = data.v3.mt, dims.use = 1:10, do.fast = TRUE)
-data.v3.mt <- RunUMAP(data.v3.mt, reduction = "pca", dims = 1:20)
-DimPlot(data.v3.mt, reduction = "umap")
-
-FeaturePlot(data.v3.mt, features = c("CD3E", "CD4", "CD8B",
-                               "CD8A", "ZBTB7B"))
-                               
-#based on this analysis, CD4 T cells  are in clusters 0, 3,4,and 5
-
+f.data.mt <- NormalizeData(f.data.mt)
+f.data.mt <- FindVariableFeatures(f.data.mt, selection.method = "vst", nfeatures = 2000)
+f.data.mt <- ScaleData(f.data.mt)
+f.data.mt <- RunPCA(f.data.mt, features = VariableFeatures(object = f.data.mt))
+f.data.mt <- FindNeighbors(f.data.mt, dims = 1:10)
+f.data.mt <- FindClusters(f.data.mt, resolution = 0.5)
+f.data.mt <- RunUMAP(f.data.mt, reduction = "pca", dims = 1:20)
+DimPlot(f.data.mt, reduction = "umap")
+                 
+#potential break-point: processed data can be saved and reloaded:
+#saveRDS(f.data.mt, file = "fitzpatrick_data_allcells.rds")
+#f.data.mt<-readRDS("fitzpatrick_data_allcells.rds", refhook = NULL)
+                 
+FeaturePlot(f.data.mt, features = c("CD3E", "CD4", "CD8B","CD8A"))
+                 
+#based on this analysis, CD4 T cells  are in clusters 0, 2,and 4
+                 
 #isolate CD4s from th dataset
-CD4s.only <- subset(x = data.v3.mt, idents = c('0','3', '4', '5'))
-
-
+CD4s.only <- subset(x = f.data.mt, idents = c('0','2', '4'))
+                 
 #Supplemental Figure 2, E-G
-#adding gene modlules of interest to the Seurat object.
+#adding gene modules of interest to the Seurat object.
+
 geneModules<-read.csv("signatures.csv", header= FALSE)
 geneModules<-geneModules[,-1]
 geneModules<-column_to_rownames(geneModules, var ="V2")
-
-# list of TRM-associated genes from
+                 
+# list of TRM-associated genes from Beura et al., J Ex Med, 2019:
+#https://rupress.org/jem/article/216/5/1214/121030/CD4-resident-memory-T-cells-dominate
 Beura<-as.vector(geneModules[1,])
 
-# list of TRM-associated genes from:
+# list of TRM-associated genes from Milner et al., NATURE, 2017
+#https://www.nature.com/articles/nature24993
 Milner<-as.vector(geneModules[2,])
 Milner<-Milner[1:118]
 
-# list of genes significanlty overexpressed in CD161hi CD4 T cells compared to CD161- and CD161int cells 
-Hackstein<-as.vector(geneModules[3,])
-Hackstein<-Hackstein[1:106]
-
+# list of genes significantly overexpressed in CD161hiCD56- and CD161hiCD56+ CD4 T cells compared to CD161- and CD161int cells (human TMIC gene module, this study)
+TMIC<-as.vector(geneModules[3,])
+TMIC<-TMIC[1:26]
+                 
 CD4s.only <- AddModuleScore(object = CD4s.only,features = list(Beura),name = 'Beura_2019')
 CD4s.only <- AddModuleScore(object = CD4s.only,features = list(Milner),name = 'Milner_2017')
-CD4s.only <- AddModuleScore(object = CD4s.only,features = list(Hackstein), name = 'Hackstein_2021')
-
+CD4s.only <- AddModuleScore(object = CD4s.only,features = list(TMIC), name = 'TMIC')
+                 
 #inital check of gene module co-expression
-FeaturePlot(CD4s.only, features = c("Hackstein_20211", "Milner_20171"),cols = c("lightgrey", "#ff0000", "#0033FF"), blend = TRUE, blend.threshold = 0.5 )
-FeaturePlot(CD4s.only, features = c("Hackstein_20211", "Beura_20191"),cols = c("lightgrey", "#ff0000", "#0033FF"), blend = TRUE, blend.threshold = 0.5 )
+FeaturePlot(CD4s.only, features = c("TMIC1", "Milner_20171"),cols = c("lightgrey", "#ff0000", "#0033FF"), blend = TRUE, blend.threshold = 0.5 )
+FeaturePlot(CD4s.only, features = c("TMIC1", "Beura_20191"),cols = c("lightgrey", "#ff0000", "#0033FF"), blend = TRUE, blend.threshold = 0.5 )
 
 #this is computationally quite demanding --> save as rds file to start right here!
 #saveRDS(CD4s.only , file = "fitzpatrick_CD4s.rds"
-#CD4s.only<-readRDS("fitzpatrick_CD4s.rds", refhook = NULL)
+#CD4s.only<-readRDS("fitzpatrick_CD4s.rds", refhook = NULL)                 
 
 #AUCell analysis of the expression of gene modules in the healthy CD4 T cells
 library("data.table")
 library("AUCell")
 library("GSEABase")
-
-counts <- GetAssayData(CD4s.only, assay = "RNA", slot = "counts")
-gmtFile<-paste(file.path("signatures4.gmt"), sep="/")
-geneSets<-getGmt((gmtFile))
+                 
+gene.counts<-GetAssayData(CD4s.only, assay = "RNA", slot = "counts")
+gmtFile<-paste(file.path("signatures.gmt"), sep="/")
+geneSets<-getGmt((gmtFile))   
+                 
+geneSets<-subsetGeneSets(geneSets, row.names(gene.counts))
+cbind(nGenes(geneSets))
 
 geneSets<-subsetGeneSets(geneSets, row.names(gene.counts))
 cbind(nGenes(geneSets))
-#Trm_Beura_2019                      595
-#Trm_Millner_2017                    115
-#Hackstein_CD161hi_DEG                91
-
+#Trm_Beura_2019   289
+#Trm_Milner_2017  107
+#TMIC_human        26
+#KEY_markers        4
+                
 geneSets <- setGeneSetNames(geneSets, newNames=paste(names(geneSets), " (", nGenes(geneSets) ,"g)", sep=""))
 extraGeneSets <- c(
   GeneSet(sample(rownames(gene.counts), 150), setName="Random (150g)"),
   GeneSet(sample(rownames(gene.counts), 500), setName="Random (500g)"))
 countsPerGene <- apply(gene.counts, 1, function(x) sum(x>0))
-extraGeneSets<-c(extraGeneSets,
-                 GeneSet(sample(names(countsPerGene)
-                                [which(countsPerGene>quantile(countsPerGene, probs=.95))], 100),
-                         setName = "HK-like(100g)"))
+extraGeneSets<-c(extraGeneSets,GeneSet(sample(names(countsPerGene)[which(countsPerGene>quantile(countsPerGene, probs=.95))], 100),setName = "HK-like(100g)"))
 geneSets<-GeneSetCollection(c(geneSets, extraGeneSets))
 names(geneSets)
-#[1] "Trm_Beura_2019 (595g)"                    "Trm_Millner_2017 (115g)"                  "CD161_core_Fergusson_2014 (112g)"        
-#[4] "ITCvsADAPT_ Gutierrez-Arcelus_2019 (34g)" "ITCvsnonITC_Gutierrez-Arcelus_2019 (23g)" "Hu_Th17_Codeset (399g)"                  
-#[7] "Hackstein_CD161hi_DEG (91g)"              "Random (150g)"                            "Random (500g)"                           
-#[10] "HK-like(100g)                            "Random (500g)"                            "HK-like(100g)"
-
-cells_rankings <- AUCell_buildRankings(counts, nCores=1, plotStats=TRUE)
-cells_AUC <- AUCell_calcAUC(geneSets, cells_rankings, aucMaxRank = ceiling(0.05 * nrow(cells_rankings)))
-
-par(mfrow=c(4,3))
-cells_assignment <- AUCell_exploreThresholds(cells_AUC, plotHist=TRUE, assign=TRUE)
-
-write.csv(cells_AUC@assays@data@listData,"Fitzpatrick_AUC_values.csv")
-#the exported .csv-file contains the AUC values for the differen gene modules in the CD4 T cells.
+            
+#[1] "Trm_Beura_2019 (289g)"  "Trm_Milner_2017 (107g)" "TMIC_human (26g)"       "KEY_markers (4g)"       "Random (150g)"          "Random (500g)"         
+#[7] "HK-like(100g)"
+                 
+ranks <- AUCell_buildRankings(gene.counts, nCores = 1, plotStats = TRUE)
+cells <- AUCell_calcAUC(geneSets = geneSets, ranks, aucMaxRank = ceiling(0.05 * nrow(ranks)))
+                 
+par(mfrow=c(3,3))
+AUC <- AUCell_exploreThresholds(cells, plotHist = TRUE, assign=TRUE)
+                 
+write.csv(cells@assays@data@listData,"Fitzpatrick_AUC_values.csv")
+#the exported .csv-file contains the AUC values for the differen gen modules in the CD4 T cells.
 #data were imported into Prism for a correlation analysis
-
-
