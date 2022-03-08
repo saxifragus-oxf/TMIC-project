@@ -3,6 +3,8 @@
 library(clusterProfiler)
 library(enrichplot)
 
+#  This analysis can be started with the files found in: 'F4: merging, clustering, PCA and loading analysis' or witht he files generated from the code in that folder.
+
 PC1pos<-read.csv("PC1_positive.csv")
 PC2pos<-read.csv("PC2_positive.csv")
 
