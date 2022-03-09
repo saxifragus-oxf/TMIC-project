@@ -1,5 +1,5 @@
-# Analysis of bulk RNA-Sequecing analyses of human and murine datasets to generate lists of differntially expressed genes and to identify gene modules
-# characterising the TMIC phenotype.
+# Analysis of bulk RNA-Sequencing analyses of human and murine datasets to generate lists of differentially expressed genes and to identify gene modules
+# characterizing the TMIC phenotype.
 
 library("tidyverse")
 library("DESeq2")
@@ -20,15 +20,15 @@ library("caroline")
 T.Seq<-read.csv("Mouse.count.csv")
 T.Seq.part<-T.Seq[!rowSums(T.Seq[,-1]==0)==25,]
 
-#removing genes with lower than 10 total counts (=lowly expressed) and not expressed in at least 10 different mice (=2 groups)
+#removing genes with lower than 10 total counts (=lowly expressed) and not expressed in at least 3 different mice 
 keep.t<-rowSums(T.Seq.part[,-1]) >=10
 T.Seq.part<-T.Seq.part[keep.t,]
 nrow(T.Seq.part)
 #[1] 15583
 
-keep.t<-filterByExpr(T.Seq.part[,-1], min.prop = 0.4)
+keep.t<-filterByExpr(T.Seq.part[,-1], min.prop = 0.12)
 dim(T.Seq.part<-T.Seq.part[keep.t,])
-#[1] 4644   26
+#[1] 5015   26
 
 #annotate and get rid of duplicates and NAs
 T_genes <- substr(T.Seq.part$id, 1, 18)
@@ -156,3 +156,145 @@ write.delim(as.data.frame(res_DP_int.s),"DP_neg_diffgenes_full.txt", row.names =
 #To obtain the results, the human anlaysis should be re-run from line 128, specifing 'bigGROUP' as a factor in the dds design formular. 
 #res_hi_neg <- results(dds, contrast = c("bigGROUP","hi_DP", "int_neg"))
 
+# Obtaining the data for the heatmaps in Suppl. Figure 5C
+
+# murine TMIC module, obtained from the differential gene expression analysis of Cbir and wt DN cells compared to CD4s. Can also be found in Supplemental Table 5.
+mTMIC<-        c("H2-M3",
+                 "Blk",
+                 "Cryba4",
+                 "Golt1b",
+                 "Gtf2b",
+                 "Hk2",
+                 "Il23r",
+                 "Il2rb",
+                 "Krtcap2",
+                 "Lmo4",
+                 "Ly6g5b",
+                 "Pigs",
+                 "Plxdc2",
+                 "Polr2i",
+                 "Ppp1r14c",
+                 "Psap",
+                 "Ramp1",
+                 "Rbpms2",
+                 "Ret",
+                 "Rorc",
+                 "S100a4",
+                 "Scpep1",
+                 "St3gal6",
+                 "Tmem176a",
+                 "Tmem176b",
+                 "Wls",
+                 "Zbtb16")
+
+# The human TMIC module was obtained from the differential gene expression analysis of CD161hi (CD56- and CD56+) CD4s compared to their CD161int and negative counterparts.
+# It can also be found in Supplemental Table 2. The murine orthologues of the human genes are used here.
+hTMIC_mouse<-  c("Il23r",
+                 "Ifi44l",
+                 "Id2",
+                 "Mybl1",
+                 "Ccl20",
+                 "Smad7",
+                 "Pde4d",
+                 "Blmh",
+                 "Gpr65",
+                 "Bhlhe40",
+                 "Klrb1a",
+                 "Klrb1",
+                 "Klrb1c",
+                 "Gm44511",
+                 "Klrb1b",
+                 "Klrb1f",
+                 "Atf3",
+                 "Cyp2r1",
+                 "Pelo",
+                 "Ctc1",
+                 "Xpnpep1",
+                 "Ifngr1",
+                 "Cdkn1a",
+                 "Msh3",
+                 "Mknk1",
+                 "Rora",
+                 "Ankrd28",
+                 "Dyrk3",
+                 "Il4i1",
+                 "Ern1")
+
+hTMIC_mouse.int<-intersect(hTMIC_mouse, rownames(assay(vsd)))
+
+TMIC_mouse<-c(mTMIC, hTMIC_mouse.int)
+TMIC_mouse<-unique(TMIC_mouse)
+Mouse_HM  <- assay(vsd)[TMIC_mouse, ]
+Mouse_HM  <- Mouse_HM - rowMeans(Mouse_HM)
+write.csv(Mouse_HM , "Mouse_TMIC_genes.csv")
+
+# The resulting table contains relative expression values for all the TMIC-associated genes from both species. 
+# A Heatmap was created by copying these into Prism.
+
+
+#human TMIC module
+hTMIC<-        c("ANKRD28",
+                 "ATF3",
+                 "BHLHE40",
+                 "BLMH",
+                 "CCL20",
+                 "CDKN1A",
+                 "CTC1",
+                 "CYP2R1",
+                 "DYRK3",
+                 "ERN1",
+                 "GPR65",
+                 "ID2",
+                 "IFI44L",
+                 "IFNGR1",
+                 "IL23R",
+                 "IL4I1",
+                 "KLRB1",
+                 "MKNK1",
+                 "MSH3",
+                 "MYBL1",
+                 "PDE4D",
+                 "PELO",
+                 "RORA",
+                 "SMAD7",
+                 "TTC39C-AS1",
+                 "XPNPEP1")
+
+#human orthologues of the mouse TMIC module
+mTMIC_human<-  c("PLXDC2",
+                 "CRYBA4",
+                 "IL2RB",
+                 "TMEM176B",
+                 "HK2",
+                 "LMO4",
+                 "ST3GAL6",
+                 "GTF2B",
+                 "RBPMS2",
+                 "TMEM176A",
+                 "WLS",
+                 "PPP1R14C",
+                 "PSAP",
+                 "ZBTB16",
+                 "RET",
+                 "BLK",
+                 "RORC",
+                 "SCPEP1",
+                 "LY6G5B",
+                 "IL23R",
+                 "KRTCAP2",
+                 "PIGS",
+                 "POLR2I",
+                 "RAMP1",
+                 "S100A4",
+                 "GOLT1B")
+mTMIC_human.int<-intersect(mTMIC_human, rownames(assay(vsd.2)))
+
+TMIC_human<-c(hTMIC, mTMIC_human.int)
+TMIC_human<-unique(TMIC_human)
+
+Human_HM  <- assay(vsd.2)[TMIC_human, ]
+Human_HM  <- Human_HM - rowMeans(Human_HM)
+write.csv(Human_HM, "Human_TMIC_genes.csv")
+
+# The resulting table contains relative expression values for all the TMIC-associated genes from both species. 
+# A Heatmap was created by copying these into Prism.
