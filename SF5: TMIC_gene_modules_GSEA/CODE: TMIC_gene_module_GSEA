@@ -2,93 +2,101 @@ library("fgsea")
 library("tidyverse")
 library("data.table")
 
-CD4.DN.04<-read.delim("CD4_DN_diffgenes.04.txt", row.names = NULL)
-CD4.DN.res.04<-CD4.DN.04[,c(1,3)]
-CD4.DN.ranks.04<-deframe(CD4.DN.res.04)
-head(CD4.DN.ranks.04)
+CD4.DN<-read.delim("CD4_DN_diffgenes.txt", row.names = NULL)
+CD4.DN.res<-CD4.DN[,c(1,3)]
+CD4.DN.ranks<-deframe(CD4.DN.res)
+head(CD4.DN.ranks)
 
-Cbir.CD4.04<-read.delim("CD4_Cbir_diffgenes.04.txt", row.names = NULL)
-Cbir.CD4.res.04<-Cbir.CD4.04[,c(1,3)]
-Cbir.CD4.ranks.04<-deframe(Cbir.CD4.res.04)
-head(Cbir.CD4.ranks.04)
+Cbir.CD4<-read.delim("CD4_Cbir_diffgenes.txt", row.names = NULL)
+Cbir.CD4.res<-Cbir.CD4[,c(1,3)]
+Cbir.CD4.ranks<-deframe(Cbir.CD4.res)
+head(Cbir.CD4.ranks)
 
-#Timm gene modules in the respective other species
+hi_neg<-read.delim("hi_neg_diffgenes.txt", row.names = NULL)
+hi_neg.res<-hi_neg[,c(1,3)]
+hi_neg.ranks<-deframe(hi_neg.res)
+head(hi_neg.ranks)
+
+# obtain lists of orthologue genes to test expression of gene modules in the other species
 library("biomaRt")
 human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
 mouse = useMart("ensembl", dataset = "mmusculus_gene_ensembl")
 
-#import Timm-modules from Excel
+#import TMIC-modules from Excel
+TMIC<-read.csv("TMIC_gene_modules.csv")
 
-Timmh_genes<-as.vector(Timm_gene_modules$`CD161hi gene module`)
-Timmh_genes<-na.omit(Timmh_genes)
-Timmh_ID = getLDS(attributes = c("hgnc_symbol"), 
-                    filters = "hgnc_symbol", 
-                    values = Timmh_genes , 
-                    mart = human, 
-                    attributesL = c("mgi_symbol"), 
-                    martL = mouse, uniqueRows=T)
+#Obtain murine ortholgue of human genes
+hTMIC_genes<-as.vector(TMIC$CD161hi.gene.module)
+hTMIC_genes<-hTMIC_genes[1:26]
 
-anyDuplicated(Timmh_ID$HGNC.symbol)
-#[1] 12 --> KLRB1 isoformes in mice... decided to keep these
+hTMIC_ID = getLDS(attributes = c("hgnc_symbol"), 
+                  filters = "hgnc_symbol", 
+                  values = hTMIC_genes , 
+                  mart = human, 
+                  attributesL = c("mgi_symbol"), 
+                  martL = mouse, uniqueRows=T)
 
-anyDuplicated(Timmh_ID$MGI.symbol)
+anyDuplicated(hTMIC_ID$HGNC.symbol)
+#[1] 25 --> KLRB1 isoformes in mice... decided to keep these
+
+anyDuplicated(hTMIC_ID$MGI.symbol)
 #[1] 0
 
-#Timmh_ID<-Timmh_ID[!duplicated(Timmh_ID$MGI.symbol), ]
-#not used here, decied to keep KLRB1 isofomrs in here
+write.csv(hTMIC_ID, "human_TMIC_module_as_mouse.csv")
+# Make an gmt file using excel: Remove the column containing the human data and transpose the column containing the mouse data. 
+# Export as tab-delimited txt file and change the ending to: .gmt
 
-write.csv(Timmh_ID, "human_Timm_module_as_mouse.csv")
-#make an gmt file using excel
-
-gmt.File <- paste(file.path("human_Timm_module_as_mouse.gmt"), sep="/")
+gmt.File <- paste(file.path("human_TMIC_module_as_mouse.gmt"), sep="/")
 pathways <- gmtPathways(gmt.File)
 
-
-fgsea.CD4.DN.04.Timmh <- fgseaMultilevel(pathways = pathways, 
-                                              CD4.DN.ranks.04,
-                                              eps = 0,
-                                              minSize = 5)
-
-
-fgsea.CD4.Cbir.04.Timmh <- fgseaMultilevel(pathways = pathways, 
-                                         Cbir.CD4.ranks.04,
+fgsea.CD4.DN.hTMIC <- fgseaMultilevel(pathways = pathways, 
+                                         CD4.DN.ranks,
                                          eps = 0,
                                          minSize = 5)
 
+fgsea.CD4.Cbir.hTMIC <- fgseaMultilevel(pathways = pathways, 
+                                           Cbir.CD4.ranks,
+                                           eps = 0,
+                                           minSize = 5)
 
-plotEnrichment(pathways[["human_Timm_module"]],
-               Cbir.CD4.ranks) + labs(title="Human_Timm_module", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
+plotEnrichment(pathways[["humanTMIC_mouse"]],
+               CD4.DN.ranks) + labs(title="Human_TMIC_module", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
+
+plotEnrichment(pathways[["humanTMIC_mouse"]],
+               Cbir.CD4.ranks) + labs(title="Human_TMIC_module", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
 
 
-Timmm_genes<-as.vector(Timm_gene_modules$`DN gene module`)
-Timmm_ID = getLDS(attributes = c("mgi_symbol"), 
+mTMIC_genes<-as.vector(TMIC$DN.gene.module)
+mTMIC_ID = getLDS(attributes = c("mgi_symbol"), 
                   filters = "mgi_symbol", 
-                  values = Timmm_genes , 
+                  values = mTMIC_genes , 
                   mart = mouse, 
                   attributesL = c("hgnc_symbol"), 
                   martL = human, uniqueRows=T)
 
-anyDuplicated(Timmm_ID$HGNC.symbol)
+anyDuplicated(mTMIC_ID$HGNC.symbol)
 #[1] 0
-anyDuplicated(Timmm_ID$MGI.symbol)
+anyDuplicated(mTMIC_ID$MGI.symbol)
 #[1] 0
 
-write.csv(Timmm_ID, "murine_Timm_module_as_human.csv")
-#make an gmt file using excel
+write.csv(mTMIC_ID, "murine_TMIC_module_as_human.csv")
+# Make an gmt file using excel: Remove the column containing the human data and transpose the column containing the mouse data. 
+# Export as tab-delimited txt file and change the ending to: .gmt
 
-gmt.File <- paste(file.path("murine_Timm_module_as_human.gmt"), sep="/")
+gmt.File <- paste(file.path("murine_TMIC_module_as_human.gmt"), sep="/")
 pathways <- gmtPathways(gmt.File)
 
 
-fgsea.hi.neg.Timmm <- fgseaMultilevel(pathways = pathways, 
-                                         hi_neg.ranks,
-                                         eps = 0,
-                                         minSize = 5)
+fgsea.hi.neg.mTMIC <- fgseaMultilevel(pathways = pathways, 
+                                      hi_neg.ranks,
+                                      eps = 0,
+                                      minSize = 5)
 
-plotEnrichment(pathways[["murine_Timm_module"]],
-               hi_neg.ranks) + labs(title="Murine_Timm_module", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
+plotEnrichment(pathways[["mouseTMIChuman"]],
+               hi_neg.ranks) + labs(title="Murine_MIC_module", ticksSize = 0.4) + (geom_line(size = 3, color = "green"))
 
 
-fwrite(fgsea.hi.neg.Timmm, file="humanTMIC.txt", sep="\t", sep2=c("", " ", ""))
-fwrite(fgsea.CD4.Cbir.Timmh, file="CbirTMIC.txt", sep="\t", sep2=c("", " ", ""))
-fwrite(fgsea.CD4.DN.Timmh, file="DNTMIC.txt", sep="\t", sep2=c("", " ", ""))
+fwrite(fgsea.hi.neg.mTMIC, file="humanTMIC.txt", sep="\t", sep2=c("", " ", ""))
+fwrite(fgsea.CD4.Cbir.06.hTMIC, file="CbirTMIC.txt", sep="\t", sep2=c("", " ", ""))
+fwrite(fgsea.CD4.DN.06.hTMIC, file="DNTMIC.txt", sep="\t", sep2=c("", " ", ""))
+
