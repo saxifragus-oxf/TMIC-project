@@ -182,6 +182,7 @@ screeplot(pca_object.3, axisLabSize = 14, titleLabSize = 22)
 biplot(pca_object.3,
        lab = NULL,
        colby = 'population',
+       colkey = c('CbirDN'='red', 'CD161hi/DP'='orange', 'CD161int/-' = '#8B8682', 'CD4' = '#66CD00', 'DN' = '#00CDCD', 'NKT' = 'purple'),
        pointSize = 7.0,
        shape = 'Source', 
        legendPosition = 'right',
