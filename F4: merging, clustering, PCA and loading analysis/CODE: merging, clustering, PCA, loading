@@ -213,6 +213,7 @@ pca_object<-pca(Gen075,metadata = meta, scale = TRUE)
 biplot(pca_object,
        lab = NULL,
        colby = 'population',
+       colkey = c('1: thymic gd and naive T cells' = '#CDC5BF', '2: gd, NKT and Ag-experienced T cells' = '#EEAEEE', '3: activated CD4s' = '#0000CD', '4: CD4' = '#9ACD32', '5: NKT' = '#FF4500', '6: CbirDN' = '#00BFFF', '7: DN' = '#CDAD00', '8: CD161int/-' = '#BF3EFF', '9: CD161hi/DP' = 'darkorange1'),
        pointSize = 7.0,
        shape = 'Source', 
        legendPosition = 'right')
